@@ -16,23 +16,26 @@ class ImageProvider {
         this.imageCollection = db.collection(imageCollectionName);
         this.userCollection = db.collection(userCollectionName);
     }
-    async getAllImages() {
-        // Fetch all images
-        const images = await this.imageCollection.find().toArray();
-        // Extract all unique author IDs from images
+    async getAllImages(authorId) {
+        const query = authorId ? { author: authorId } : {};
+        const images = await this.imageCollection.find(query).toArray();
         const authorIds = [...new Set(images.map(img => img.author))];
-        // Fetch users matching those author IDs
         const users = await this.userCollection.find({ _id: { $in: authorIds } }).toArray();
-        // Create a map of user IDs to user objects for easy lookup
         const userMap = {};
         users.forEach(user => {
             userMap[user._id] = user;
         });
-        // Replace author ID with full user object
         return images.map(img => ({
             ...img,
-            author: userMap[img.author] || null, // If user is not found, return null
+            author: userMap[img.author] || null,
         }));
+    }
+    async updateImageName(imageId, newName) {
+        const result = await this.imageCollection.updateOne({ _id: imageId }, { $set: { name: newName } });
+        return result.matchedCount;
+    }
+    async createImage(image) {
+        await this.imageCollection.insertOne(image);
     }
 }
 exports.ImageProvider = ImageProvider;

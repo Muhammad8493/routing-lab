@@ -20,26 +20,33 @@ export class ImageProvider {
         this.userCollection = db.collection<User>(userCollectionName);
     }
 
-    async getAllImages(): Promise<ImageWithAuthor[]> {
-        // Fetch all images
-        const images = await this.imageCollection.find().toArray();
+    async getAllImages(authorId?: string): Promise<ImageWithAuthor[]> {
+        const query = authorId ? { author: authorId } : {};
+        const images = await this.imageCollection.find(query).toArray();
 
-        // Extract all unique author IDs from images
         const authorIds = [...new Set(images.map(img => img.author))];
-
-        // Fetch users matching those author IDs
         const users = await this.userCollection.find({ _id: { $in: authorIds } }).toArray();
 
-        // Create a map of user IDs to user objects for easy lookup
         const userMap: { [key: string]: User } = {};
         users.forEach(user => {
             userMap[user._id] = user;
         });
 
-        // Replace author ID with full user object
         return images.map(img => ({
             ...img,
-            author: userMap[img.author] || null, // If user is not found, return null
+            author: userMap[img.author] || null,
         }));
+    }
+
+    async updateImageName(imageId: string, newName: string): Promise<number> {
+        const result = await this.imageCollection.updateOne(
+            { _id: imageId },
+            { $set: { name: newName } }
+        );
+        return result.matchedCount;
+    }
+
+    async createImage(image: Image): Promise<void> {
+        await this.imageCollection.insertOne(image);
     }
 }
